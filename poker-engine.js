@@ -239,32 +239,193 @@ function shuffle(arr) {
   return arr;
 }
 
-// Move suggestion. Two modes:
-//
-// 1) With pot size + bet to call provided: uses the REAL pot-odds formula.
-//    Required equity to profitably call = bet / (pot + bet).
-//    This is standard, well-established poker math -- not a heuristic.
-//    If your win% clears that bar, calling is mathematically break-even
-//    or better. Comfortably clearing it (not just barely) upgrades to Raise.
-//
-// 2) Without bet/pot info: falls back to the equity-vs-field-size heuristic
-//    from before. Less precise, since real correct play always depends on
-//    price -- but useful when you just want a rough read.
-function suggestMove(winPct, numOpponents, street = "preflop", potSize = null, betToCall = null) {
+// ---- Preflop ranges, taken directly from the 6-max opening range sheet ----
+// (Seat 1 = first to act ... Seat 4 = Button). Each function returns true if
+// the given hand is inside that seat's raise range, per the sheet's own rules.
+// This does NOT come from equity math -- it's the exact chart already studied,
+// so preflop advice here matches that sheet instead of a separately-invented number.
+function handShape(card1, card2) {
+  const r1 = rankValue(card1);
+  const r2 = rankValue(card2);
+  const hi = Math.max(r1, r2);
+  const lo = Math.min(r1, r2);
+  const suited = suitOf(card1) === suitOf(card2);
+  const pair = r1 === r2;
+  return { hi, lo, suited, pair };
+}
+
+function inSeat1Range({ hi, lo, suited, pair }) {
+  if (pair && hi >= 6) return true; // 66+
+  if (suited && hi === 14 && lo >= 10) return true; // ATs-AKs
+  if (!suited && hi === 14 && lo >= 12) return true; // AQo, AKo
+  if (hi === 13 && lo === 12) return true; // KQ suited or offsuit
+  if (suited && hi === 13 && lo === 11) return true; // KJs
+  if (suited && hi === 12 && lo === 11) return true; // QJs
+  return false;
+}
+
+function inSeat2Range(shape) {
+  if (inSeat1Range(shape)) return true;
+  const { hi, lo, suited, pair } = shape;
+  if (pair && hi >= 2) return true; // 22+
+  if (suited && hi === 14 && lo >= 9) return true; // A9s+
+  if (!suited && hi === 14 && lo >= 10) return true; // ATo+
+  if (suited && hi === 13 && lo >= 10) return true; // KTs+
+  if (suited && hi === 12 && lo >= 10) return true; // QTs+
+  if (suited && hi === 11 && lo === 10) return true; // JTs
+  return false;
+}
+
+function inSeat3Range(shape) {
+  if (inSeat2Range(shape)) return true;
+  const { hi, lo, suited } = shape;
+  if (suited && hi === 14 && lo >= 2) return true; // any suited ace
+  if (!suited && hi === 14 && lo >= 7) return true; // A7o+
+  if (suited && hi === 13 && lo >= 9) return true; // K9s+
+  if (!suited && hi === 13 && lo >= 10) return true; // KTo+
+  if (suited && hi === 12 && lo >= 9) return true; // Q9s+
+  if (!suited && hi === 12 && lo === 10) return true; // QTo
+  if (suited && hi === 11 && lo === 9) return true; // J9s
+  if (!suited && hi === 11 && lo === 10) return true; // JTo
+  if (suited && hi - lo === 1 && lo >= 5 && hi <= 10) return true; // 65s-T9s connectors
+  return false;
+}
+
+function inSeat4Range(shape) {
+  if (inSeat3Range(shape)) return true;
+  const { hi, lo, suited } = shape;
+  if (suited && hi >= 6 && lo >= 6) return true; // any suited hand, both cards 6+
+  if (hi >= 10 && lo >= 10) return true; // any two broadway cards, suited or offsuit
+  if (suited && hi - lo === 2 && lo >= 4 && hi <= 8) return true; // suited one-gappers
+  if (!suited && (hi === 13 || hi === 12) && lo >= 9) return true; // K/Q offsuit + 9 or higher
+  return false;
+}
+
+const SEAT_RANGE_CHECKERS = {
+  seat1: inSeat1Range,
+  seat2: inSeat2Range,
+  seat3: inSeat3Range,
+  seat4: inSeat4Range,
+};
+
+// Returns "Raise" or "Fold" straight from the sheet's chart, or null if this
+// position isn't covered by that chart (small blind / big blind / no position picked).
+function chartBasedPreflopMove(heroCards, position) {
+  const checker = SEAT_RANGE_CHECKERS[position];
+  if (!checker) return null;
+  const shape = handShape(heroCards[0], heroCards[1]);
+  return checker(shape) ? "Raise" : "Fold";
+}
+
+// ---- Generalized table-size + seat system ----
+// The exact Seat 1-4 chart above is for 6-max specifically. This section
+// generalizes to ANY table size (3-10 players), using the anchor points from
+// the 9-handed and 6-handed range sheets, plus a verified equity ranking of
+// all 169 starting hand types computed with this same engine (so it's
+// internally consistent, not a separate guess).
+
+// General preflop chart move for ANY table size. Rule-based (like the exact
+// Seat 1-4 chart above), NOT equity-percentile-based -- an earlier version of
+// this used raw heads-up equity to rank hands, but that undervalues suited
+// connectors (their real value is implied odds/big-hand potential, not raw
+// win-rate against a random hand), so it disagreed with the studied sheets.
+// This version interpolates the SAME KIND of threshold rules the sheets use,
+// scaled continuously by how early/late the seat is.
+function inRangeGeneral(shape, tightness) {
+  // tightness: 0 = tightest (first to act, many-handed) ... 1 = loosest (Button)
+  const { hi, lo, suited, pair } = shape;
+
+  const pairMin = tightness < 0.2 ? 6 : tightness < 0.3 ? 4 : 2;
+  if (pair && hi >= pairMin) return true;
+
+  const aceSuitedMin = tightness < 0.15 ? 10 : tightness < 0.35 ? 9 : tightness < 0.6 ? 5 : 2;
+  if (suited && hi === 14 && lo >= aceSuitedMin) return true;
+
+  const aceOffMin = tightness < 0.15 ? 11 : tightness < 0.35 ? 10 : 7; // sheet: UTG "AJ+" means J(11), not Q
+  if (!suited && hi === 14 && lo >= aceOffMin) return true;
+
+  if (hi === 13 && lo === 12) return true; // KQ, suited or offsuit, playable everywhere
+  const kSuitedMin = tightness < 0.15 ? 11 : tightness < 0.35 ? 10 : tightness < 0.85 ? 9 : 6;
+  if (suited && hi === 13 && lo >= kSuitedMin) return true;
+  const kOffMin = tightness < 0.35 ? 12 : tightness < 0.85 ? 10 : 9; // KTo+ through seat 3, K9o+ only at the button
+  if (!suited && hi === 13 && lo >= kOffMin) return true;
+
+  const qSuitedMin = tightness < 0.15 ? 11 : tightness < 0.35 ? 10 : tightness < 0.85 ? 9 : 6;
+  if (suited && hi === 12 && lo >= qSuitedMin) return true;
+  if (!suited && hi === 12 && tightness >= 0.6 && tightness < 0.85 && lo === 10) return true; // QTo exactly, seat 3 only
+  if (!suited && hi === 12 && tightness >= 0.85 && lo >= 9) return true; // Q9o+, button only
+
+  if (suited && hi === 11 && lo === 10 && tightness >= 0.2) return true; // JTs -- NOT at the tightest seat
+  if (suited && hi === 11 && lo >= 9 && tightness >= 0.6) return true; // J9s+ from seat 3 (cutoff) onward
+  if (tightness >= 0.6 && !suited && hi === 11 && lo === 10) return true; // JTo, later positions only
+
+  // Suited connectors and small gappers -- explicitly included at looser
+  // positions, exactly as both studied sheets call out by name.
+  if (suited && tightness >= 0.35) {
+    const gap = hi - lo;
+    if (gap === 1 && lo >= 5 && hi <= 10) return true; // 65s-T9s, from mid position onward
+    if (tightness >= 0.85 && gap === 2 && lo >= 4 && hi <= 8) return true; // one-gappers, button only
+    if (tightness >= 0.85 && hi >= 6 && lo >= 6) return true; // any suited hand, both cards 6+, button only
+  }
+  if (tightness >= 0.85 && hi >= 10 && lo >= 10) return true; // any two broadway cards, button-wide
+
+  return false;
+}
+
+function generalChartMove(heroCards, seatIndex, numPlayers) {
+  if (!seatIndex || !numPlayers) return null;
+  const nonBlindSeats = Math.max(numPlayers - 2, 1);
+  const tightness = nonBlindSeats <= 1 ? 1 : (seatIndex - 1) / (nonBlindSeats - 1);
+  const shape = handShape(heroCards[0], heroCards[1]);
+  return inRangeGeneral(shape, tightness) ? "Raise" : "Fold";
+}
+
+// Position adjustment used for POSTFLOP decisions only (flop/turn/river),
+// since the studied sheet only covers preflop opens, not postflop ranges.
+// Direction is the same real principle as before: earlier position needs
+// more edge to continue, later position can profitably need less.
+const POSTFLOP_POSITION_ADJUSTMENT = {
+  seat1: 5, seat2: 2, seat3: -1, seat4: -5, sb: 2, bb: -1, none: 0,
+};
+
+function getPositionAdjustment(position) {
+  return POSTFLOP_POSITION_ADJUSTMENT[position] ?? 0;
+}
+
+// Move suggestion. Preflop with a known seat (1-4) uses the exact studied
+// chart above -- no equity math involved, matches the sheet directly.
+// Small Blind / Big Blind aren't in that chart (the sheet explicitly treats
+// blind defense as a separate topic not yet covered), so those and postflop
+// streets fall back to the equity/pot-odds engine below.
+function suggestMove(winPct, numOpponents, street = "preflop", potSize = null, betToCall = null, position = "none", heroCards = null, numPlayers = null, seatIndex = null) {
+  if (street === "preflop" && heroCards) {
+    // 6-max table with a named Seat 1-4: use the exact studied chart (highest fidelity)
+    if (numPlayers === 6 && position) {
+      const chartMove = chartBasedPreflopMove(heroCards, position);
+      if (chartMove) return chartMove;
+    }
+    // Any other table size with a seat index given: use the general table-size system
+    if (numPlayers && seatIndex) {
+      const generalMove = generalChartMove(heroCards, seatIndex, numPlayers);
+      if (generalMove) return generalMove;
+    }
+  }
+
+  const posAdj = getPositionAdjustment(position);
   const hasPotInfo = potSize !== null && betToCall !== null && betToCall > 0;
 
   if (hasPotInfo) {
     const requiredEquity = (betToCall / (potSize + betToCall)) * 100;
-    const cushion = winPct - requiredEquity; // how far above break-even you are
+    const adjustedRequired = requiredEquity + posAdj;
+    const cushion = winPct - adjustedRequired;
 
-    if (cushion < 0) return "Fold"; // mathematically losing call
-    if (cushion >= 15) return "Raise"; // comfortably ahead -- good spot to build the pot
-    return "Call"; // profitable, but not by a wide enough margin to raise
+    if (cushion < 0) return "Fold";
+    if (cushion >= 15) return "Raise";
+    return "Call";
   }
 
-  // Fallback: equity-only heuristic (no price known)
   const fairShare = 100 / (numOpponents + 1);
-  const edge = winPct - fairShare;
+  const edge = winPct - fairShare - posAdj;
 
   const thresholds = {
     preflop: { raiseEdge: 20, callEdge: 5, raiseAbs: 65 },

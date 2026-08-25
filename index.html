@@ -207,6 +207,29 @@
   </div>
 
   <div class="card-box">
+    <div class="section-label">Table size</div>
+    <select id="numPlayers">
+      <option value="9">9 players (full ring)</option>
+      <option value="8">8 players</option>
+      <option value="7">7 players</option>
+      <option value="6" selected>6 players (6-max)</option>
+      <option value="5">5 players</option>
+      <option value="4">4 players</option>
+      <option value="3">3 players</option>
+    </select>
+  </div>
+
+  <div class="card-box">
+    <div class="section-label">Your position (optional)</div>
+    <select id="position">
+      <option value="none">Not sure / skip</option>
+    </select>
+    <div style="font-size:11px; color:var(--muted); margin-top:6px;" id="positionNote">
+      6-player preflop advice comes straight from your studied opening range chart. Other table sizes use a scaled version of the same logic. Small Blind/Big Blind use a general estimate since blind defense is its own separate topic.
+    </div>
+  </div>
+
+  <div class="card-box">
     <div class="section-label">Bet info (optional, but recommended)</div>
     <div style="display:flex; gap:10px; margin-bottom:4px;">
       <div style="flex:1;">
@@ -266,6 +289,58 @@ const SUITS_UI = [
 ];
 
 let selectedCards = {};
+
+const numPlayersSelect = document.getElementById("numPlayers");
+const positionSelect = document.getElementById("position");
+const positionNote = document.getElementById("positionNote");
+
+function rebuildPositionOptions() {
+  const n = parseInt(numPlayersSelect.value, 10);
+  const nonBlindSeats = Math.max(n - 2, 1);
+  positionSelect.innerHTML = "";
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "none";
+  noneOpt.textContent = "Not sure / skip";
+  positionSelect.appendChild(noneOpt);
+
+  if (n === 6) {
+    const labels = [
+      ["seat1", "Seat 1 — First to act"],
+      ["seat2", "Seat 2"],
+      ["seat3", "Seat 3 — Cutoff"],
+      ["seat4", "Seat 4 — Button"],
+    ];
+    for (const [val, label] of labels) {
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = label;
+      positionSelect.appendChild(opt);
+    }
+    positionNote.textContent = "Preflop advice comes straight from your studied 6-max opening range chart.";
+  } else {
+    for (let i = 1; i <= nonBlindSeats; i++) {
+      const opt = document.createElement("option");
+      opt.value = "seat" + i;
+      const label = i === 1 ? "Seat 1 — First to act" : i === nonBlindSeats ? "Seat " + i + " — Button" : "Seat " + i;
+      opt.textContent = label;
+      positionSelect.appendChild(opt);
+    }
+    positionNote.textContent = "Preflop advice is scaled from your studied charts for this table size.";
+  }
+
+  const sbOpt = document.createElement("option");
+  sbOpt.value = "sb";
+  sbOpt.textContent = "Small Blind";
+  positionSelect.appendChild(sbOpt);
+  const bbOpt = document.createElement("option");
+  bbOpt.value = "bb";
+  bbOpt.textContent = "Big Blind";
+  positionSelect.appendChild(bbOpt);
+}
+
+numPlayersSelect.addEventListener("change", rebuildPositionOptions);
+rebuildPositionOptions();
+
 let activeSlot = null;
 let pendingRank = null;
 
@@ -389,8 +464,14 @@ calcBtn.addEventListener("click", () => {
     const betVal = document.getElementById("betToCall").value;
     const potSize = potVal !== "" ? parseFloat(potVal) : null;
     const betToCall = betVal !== "" ? parseFloat(betVal) : null;
+    const position = document.getElementById("position").value;
 
-    const move = suggestMove(winPct, numOpp, street, potSize, betToCall);
+    const numPlayers = parseInt(numPlayersSelect.value, 10);
+    const positionVal = position; // e.g. "seat3", "sb", "bb", "none"
+    const seatIndexMatch = positionVal.match(/^seat(\d+)$/);
+    const seatIndex = seatIndexMatch ? parseInt(seatIndexMatch[1], 10) : null;
+
+    const move = suggestMove(winPct, numOpp, street, potSize, betToCall, positionVal, hero, numPlayers, seatIndex);
 
     document.getElementById("winPct").textContent = winPct.toFixed(1) + "%";
     document.getElementById("moveText").textContent = move;
