@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>EquityUp — Poker Odds Calculator</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --card: #131a22;
+    --accent: #22c55e;
+    --accent2: #ef4444;
+    --text: #e8edf2;
+    --muted: #8a97a3;
+    --border: #1e2733;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  header {
+    text-align: center;
+    padding: 20px 0 24px;
+  }
+  .logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .tagline {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .card-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .section-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .slot-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .slot {
+    width: 52px;
+    height: 70px;
+    background: #fff0;
+    border: 2px dashed #2a3540;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--muted);
+    user-select: none;
+  }
+  .slot.filled {
+    border-style: solid;
+    background: #fff;
+    color: #111;
+    border-color: #fff;
+  }
+  .slot.filled.red { color: var(--accent2); }
+  .slot.active { border-color: var(--accent); }
+
+  .picker {
+    display: none;
+    margin-top: 14px;
+    background: #0e141b;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .picker.open { display: block; }
+  .picker-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .rank-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .suit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .pick-btn {
+    background: #1e2733;
+    border: 1px solid #2a3540;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 10px 0;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pick-btn.red { color: var(--accent2); }
+  .pick-btn:active { background: #263241; }
+
+  select, .opp-row {
+    width: 100%;
+  }
+  select {
+    background: #0e141b;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 15px;
+  }
+
+  .calc-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #06210f;
+    font-weight: 800;
+    border: none;
+    padding: 16px;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  .calc-btn:disabled { background: #2a3540; color: #6b7785; }
+
+  .clear-link {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .result {
+    display: none;
+    text-align: center;
+    padding: 24px 0 8px;
+  }
+  .result.show { display: block; }
+  .win-pct {
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .move-line { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .move-line b { color: var(--text); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 30px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">&#9824; EquityUp</div>
+    <div class="tagline">Know your odds before you bet.</div>
+  </header>
+
+  <div class="card-box">
+    <div class="section-label">Your hand</div>
+    <div class="slot-row" id="heroSlots">
+      <div class="slot" data-slot="hero0">+</div>
+      <div class="slot" data-slot="hero1">+</div>
+    </div>
+  </div>
+
+  <div class="card-box">
+    <div class="section-label">Board (optional)</div>
+    <div class="slot-row" id="boardSlots">
+      <div class="slot" data-slot="board0">+</div>
+      <div class="slot" data-slot="board1">+</div>
+      <div class="slot" data-slot="board2">+</div>
+      <div class="slot" data-slot="board3">+</div>
+      <div class="slot" data-slot="board4">+</div>
+    </div>
+
+    <div class="picker" id="picker">
+      <div class="picker-title" id="pickerTitle">Pick a rank</div>
+      <div class="rank-grid" id="rankGrid"></div>
+      <div class="suit-grid" id="suitGrid" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="card-box">
+    <div class="section-label">Opponents</div>
+    <select id="numOpponents">
+      <option value="1">1 opponent</option>
+      <option value="2">2 opponents</option>
+      <option value="3">3 opponents</option>
+      <option value="4">4 opponents</option>
+      <option value="5">5 opponents</option>
+      <option value="6">6 opponents</option>
+      <option value="7">7 opponents</option>
+      <option value="8">8 opponents</option>
+    </select>
+
+    <button class="calc-btn" id="calcBtn" disabled>Select your 2 cards first</button>
+    <span class="clear-link" id="clearLink">Clear all</span>
+
+    <div class="result" id="result">
+      <div class="win-pct" id="winPct">--%</div>
+      <div class="move-line">chance to win vs. field &middot; suggested move: <b id="moveText">--</b></div>
+    </div>
+  </div>
+
+  <footer>
+    EquityUp is a free educational poker odds calculator.<br />
+    Math verified against published poker equity benchmarks.
+  </footer>
+</div>
+
+<script src="poker-engine.js"></script>
+<script>
+const RANKS_UI = ["2","3","4","5","6","7","8","9","T","J","Q","K","A"];
+const SUITS_UI = [
+  { code: "s", symbol: "\u2660", color: "black" },
+  { code: "h", symbol: "\u2665", color: "red" },
+  { code: "d", symbol: "\u2666", color: "red" },
+  { code: "c", symbol: "\u2663", color: "black" },
+];
+
+let selectedCards = {};
+let activeSlot = null;
+let pendingRank = null;
+
+const picker = document.getElementById("picker");
+const rankGrid = document.getElementById("rankGrid");
+const suitGrid = document.getElementById("suitGrid");
+const pickerTitle = document.getElementById("pickerTitle");
+const calcBtn = document.getElementById("calcBtn");
+
+RANKS_UI.forEach((r) => {
+  const btn = document.createElement("div");
+  btn.className = "pick-btn";
+  btn.textContent = r;
+  btn.addEventListener("click", () => {
+    pendingRank = r;
+    rankGrid.style.display = "none";
+    suitGrid.style.display = "grid";
+    pickerTitle.textContent = "Pick a suit";
+  });
+  rankGrid.appendChild(btn);
+});
+
+SUITS_UI.forEach((s) => {
+  const btn = document.createElement("div");
+  btn.className = "pick-btn" + (s.color === "red" ? " red" : "");
+  btn.textContent = s.symbol;
+  btn.addEventListener("click", () => {
+    if (!pendingRank || !activeSlot) return;
+    const card = pendingRank + s.code;
+    if (isCardUsed(card)) {
+      alert("That card is already in play. Pick a different one.");
+      return;
+    }
+    selectedCards[activeSlot] = card;
+    renderSlot(activeSlot);
+    closePicker();
+    updateCalcButton();
+  });
+  suitGrid.appendChild(btn);
+});
+
+function isCardUsed(card) {
+  return Object.values(selectedCards).includes(card);
+}
+
+function renderSlot(slotId) {
+  const el = document.querySelector(`[data-slot="${slotId}"]`);
+  const card = selectedCards[slotId];
+  if (!card) {
+    el.textContent = "+";
+    el.className = "slot";
+    return;
+  }
+  const rank = card[0];
+  const suitCode = card[1];
+  const suitInfo = SUITS_UI.find((s) => s.code === suitCode);
+  el.textContent = rank + suitInfo.symbol;
+  el.className = "slot filled" + (suitInfo.color === "red" ? " red" : "");
+}
+
+function openPicker(slotId) {
+  document.querySelectorAll(".slot").forEach((s) => s.classList.remove("active"));
+  document.querySelector(`[data-slot="${slotId}"]`).classList.add("active");
+  activeSlot = slotId;
+  pendingRank = null;
+  rankGrid.style.display = "grid";
+  suitGrid.style.display = "none";
+  pickerTitle.textContent = "Pick a rank";
+  picker.classList.add("open");
+}
+
+function closePicker() {
+  picker.classList.remove("open");
+  document.querySelectorAll(".slot").forEach((s) => s.classList.remove("active"));
+  activeSlot = null;
+  pendingRank = null;
+}
+
+document.querySelectorAll(".slot").forEach((slot) => {
+  slot.addEventListener("click", () => {
+    const slotId = slot.getAttribute("data-slot");
+    if (selectedCards[slotId]) {
+      delete selectedCards[slotId];
+      renderSlot(slotId);
+      updateCalcButton();
+      closePicker();
+      return;
+    }
+    openPicker(slotId);
+  });
+});
+
+function updateCalcButton() {
+  const hasHero = selectedCards["hero0"] && selectedCards["hero1"];
+  calcBtn.disabled = !hasHero;
+  calcBtn.textContent = hasHero ? "Calculate My Odds" : "Select your 2 cards first";
+}
+
+document.getElementById("clearLink").addEventListener("click", () => {
+  selectedCards = {};
+  document.querySelectorAll(".slot").forEach((slot) => renderSlot(slot.getAttribute("data-slot")));
+  document.getElementById("result").classList.remove("show");
+  updateCalcButton();
+});
+
+calcBtn.addEventListener("click", () => {
+  const hero = [selectedCards["hero0"], selectedCards["hero1"]];
+  const board = ["board0", "board1", "board2", "board3", "board4"]
+    .map((id) => selectedCards[id])
+    .filter(Boolean);
+  const numOpp = parseInt(document.getElementById("numOpponents").value, 10);
+
+  calcBtn.textContent = "Calculating...";
+  calcBtn.disabled = true;
+
+  setTimeout(() => {
+    const winPct = simulateEquity(hero, board, numOpp, 3000);
+    const move = suggestMove(winPct, numOpp);
+
+    document.getElementById("winPct").textContent = winPct.toFixed(1) + "%";
+    document.getElementById("moveText").textContent = move;
+    document.getElementById("result").classList.add("show");
+
+    calcBtn.textContent = "Recalculate";
+    calcBtn.disabled = false;
+  }, 30);
+});
+</script>
+</body>
+</html>
