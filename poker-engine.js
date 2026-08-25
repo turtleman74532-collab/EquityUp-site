@@ -239,11 +239,55 @@ function shuffle(arr) {
   return arr;
 }
 
-// Simple move suggestion based on win % (rough heuristic, not full GTO)
-function suggestMove(winPct, numOpponents) {
-  // Rough thresholds - looser as opponent count increases isn't modeled here,
-  // this is a simple educational heuristic, not solver-perfect advice.
-  if (winPct >= 65) return "Raise";
-  if (winPct >= 45) return "Call";
+// Move suggestion. Two modes:
+//
+// 1) With pot size + bet to call provided: uses the REAL pot-odds formula.
+//    Required equity to profitably call = bet / (pot + bet).
+//    This is standard, well-established poker math -- not a heuristic.
+//    If your win% clears that bar, calling is mathematically break-even
+//    or better. Comfortably clearing it (not just barely) upgrades to Raise.
+//
+// 2) Without bet/pot info: falls back to the equity-vs-field-size heuristic
+//    from before. Less precise, since real correct play always depends on
+//    price -- but useful when you just want a rough read.
+function suggestMove(winPct, numOpponents, street = "preflop", potSize = null, betToCall = null) {
+  const hasPotInfo = potSize !== null && betToCall !== null && betToCall > 0;
+
+  if (hasPotInfo) {
+    const requiredEquity = (betToCall / (potSize + betToCall)) * 100;
+    const cushion = winPct - requiredEquity; // how far above break-even you are
+
+    if (cushion < 0) return "Fold"; // mathematically losing call
+    if (cushion >= 15) return "Raise"; // comfortably ahead -- good spot to build the pot
+    return "Call"; // profitable, but not by a wide enough margin to raise
+  }
+
+  // Fallback: equity-only heuristic (no price known)
+  const fairShare = 100 / (numOpponents + 1);
+  const edge = winPct - fairShare;
+
+  const thresholds = {
+    preflop: { raiseEdge: 20, callEdge: 5, raiseAbs: 65 },
+    flop:    { raiseEdge: 18, callEdge: 3, raiseAbs: 60 },
+    turn:    { raiseEdge: 20, callEdge: 5, raiseAbs: 62 },
+    river:   { raiseEdge: 25, callEdge: 8, raiseAbs: 68 },
+  };
+  const t = thresholds[street] || thresholds.preflop;
+
+  if (edge >= t.raiseEdge || winPct >= t.raiseAbs) return "Raise";
+  if (edge >= t.callEdge) return "Call";
   return "Fold";
+}
+
+// The exact equity % needed to profitably call a given bet -- useful to show
+// on its own even before running the full simulation.
+function requiredEquityToCall(potSize, betToCall) {
+  return (betToCall / (potSize + betToCall)) * 100;
+}
+
+function streetFromBoardLength(boardLength) {
+  if (boardLength >= 5) return "river";
+  if (boardLength === 4) return "turn";
+  if (boardLength === 3) return "flop";
+  return "preflop";
 }
