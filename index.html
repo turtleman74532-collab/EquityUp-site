@@ -247,17 +247,12 @@
   </div>
 
   <div class="card-box">
-    <div class="section-label">Opponents</div>
-    <select id="numOpponents">
-      <option value="1">1 opponent</option>
-      <option value="2">2 opponents</option>
-      <option value="3">3 opponents</option>
-      <option value="4">4 opponents</option>
-      <option value="5">5 opponents</option>
-      <option value="6">6 opponents</option>
-      <option value="7">7 opponents</option>
-      <option value="8">8 opponents</option>
-    </select>
+    <div class="section-label">Opponents still in the hand</div>
+    <input type="number" id="numOpponents" min="1" max="9" value="6" style="width:100%; background:#0e141b; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:15px;" />
+    <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+      Auto-set from Table Size, but adjust it down if some players have folded — equity changes a lot based on how many people you're actually up against.
+    </div>
+  </div>
 
     <button class="calc-btn" id="calcBtn" disabled>Select your 2 cards first</button>
     <span class="clear-link" id="clearLink">Clear all</span>
@@ -338,8 +333,12 @@ function rebuildPositionOptions() {
   positionSelect.appendChild(bbOpt);
 }
 
-numPlayersSelect.addEventListener("change", rebuildPositionOptions);
+numPlayersSelect.addEventListener("change", () => {
+  rebuildPositionOptions();
+  document.getElementById("numOpponents").value = parseInt(numPlayersSelect.value, 10) - 1;
+});
 rebuildPositionOptions();
+document.getElementById("numOpponents").value = parseInt(numPlayersSelect.value, 10) - 1;
 
 let activeSlot = null;
 let pendingRank = null;
