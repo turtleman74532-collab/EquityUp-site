@@ -223,11 +223,16 @@ function simulateEquity(heroCards, boardCards, numOpponents, iterations = 5000) 
     if (heroScore > maxOppScore) {
       wins++;
     } else if (heroScore === maxOppScore) {
-      ties++;
+      // Correctly handle N-way chops, not just 2-way: count everyone
+      // (hero + every opponent) who shares the winning score, and credit
+      // hero their fair fraction of the pot, not a flat "half a win."
+      const numTiedOpponents = oppScores.filter((s) => s === maxOppScore).length;
+      const totalTiedPlayers = 1 + numTiedOpponents; // hero + tied opponents
+      ties += 1 / totalTiedPlayers;
     }
   }
 
-  const winPct = ((wins + ties / 2) / iterations) * 100;
+  const winPct = ((wins + ties) / iterations) * 100;
   return winPct;
 }
 
