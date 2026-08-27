@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EquityUp — Know Your Odds Before You Bet</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --card: #131a22;
+    --accent: #22c55e;
+    --accent2: #ef4444;
+    --text: #e8edf2;
+    --muted: #8a97a3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 80px 24px 60px;
+    text-align: center;
+    background: radial-gradient(circle at 50% 0%, rgba(34,197,94,0.12), transparent 60%);
+  }
+  .logo {
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    font-weight: 700;
+  }
+  h1 {
+    font-size: 42px;
+    max-width: 640px;
+    margin: 0 auto 16px;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 18px;
+    max-width: 480px;
+    margin: 0 auto 32px;
+  }
+  .cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #06210f;
+    font-weight: 700;
+    padding: 14px 28px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 16px;
+  }
+  .cta.secondary {
+    background: transparent;
+    border: 1px solid #2a3540;
+    color: var(--text);
+    margin-left: 12px;
+  }
+  .demo {
+    max-width: 420px;
+    margin: 56px auto 0;
+    background: var(--card);
+    border: 1px solid #1e2733;
+    border-radius: 14px;
+    padding: 24px;
+    text-align: left;
+  }
+  .cards-row { display: flex; gap: 10px; margin-bottom: 18px; }
+  .card {
+    width: 56px; height: 76px;
+    background: #fff;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 20px;
+  }
+  .card.red { color: var(--accent2); }
+  .card.black { color: #111; }
+  .result-bar {
+    height: 10px;
+    border-radius: 6px;
+    background: #1e2733;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .result-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 68%;
+  }
+  .result-label {
+    display: flex; justify-content: space-between;
+    font-size: 13px; color: var(--muted);
+  }
+  .win-pct { color: var(--accent); font-weight: 700; font-size: 22px; }
+
+  section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 24px;
+  }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .feature {
+    background: var(--card);
+    border: 1px solid #1e2733;
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .feature h3 { font-size: 16px; margin-bottom: 8px; }
+  .feature p { color: var(--muted); font-size: 14px; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .tag.free { background: rgba(34,197,94,0.15); color: var(--accent); }
+  .tag.pro { background: rgba(239,68,68,0.15); color: #f87171; }
+
+  .pricing {
+    text-align: center;
+  }
+  .plans {
+    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+    margin-top: 32px;
+  }
+  .plan {
+    background: var(--card);
+    border: 1px solid #1e2733;
+    border-radius: 14px;
+    padding: 32px;
+    width: 260px;
+    text-align: left;
+  }
+  .plan.highlight { border-color: var(--accent); }
+  .plan h3 { font-size: 20px; margin-bottom: 4px; }
+  .price { font-size: 32px; font-weight: 800; margin: 12px 0; }
+  .price span { font-size: 14px; color: var(--muted); font-weight: 400; }
+  .plan ul { list-style: none; margin-top: 16px; }
+  .plan li { color: var(--muted); font-size: 14px; padding: 6px 0; border-top: 1px solid #1e2733; }
+  .plan li:first-child { border-top: none; }
+
+  footer {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid #1e2733;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">♠ EQUITYUP</div>
+  <h1>Know your odds before you bet.</h1>
+  <p class="sub">A free poker odds calculator that tells you your real win percentage — instantly, right in your browser.</p>
+  <a class="cta" href="https://turtleman74532-collab.github.io/EquityUp-site/">Try It Free</a>
+  <a class="cta secondary" href="#features">See how it works</a>
+
+  <div class="demo">
+    <div class="cards-row">
+      <div class="card red">A♥</div>
+      <div class="card black">K♠</div>
+    </div>
+    <div class="win-pct">68% to win</div>
+    <div class="result-bar"><div class="result-fill"></div></div>
+    <div class="result-label"><span>vs. random hand</span><span>Best move: Raise</span></div>
+  </div>
+</header>
+
+<section id="features">
+  <h2 style="text-align:center; margin-bottom: 32px; font-size: 28px;">What it does</h2>
+  <div class="features">
+    <div class="feature">
+      <span class="tag free">FREE</span>
+      <h3>Instant win odds</h3>
+      <p>Enter your hole cards and the board — get your real-time win percentage right away.</p>
+    </div>
+    <div class="feature">
+      <span class="tag free">FREE</span>
+      <h3>Real pot odds math</h3>
+      <p>Enter the pot size and bet to call — get a fold/call/raise suggestion based on the actual math, not a guess.</p>
+    </div>
+    <div class="feature">
+      <span class="tag free">FREE</span>
+      <h3>Multi-player equity</h3>
+      <p>Calculate odds against up to 8 opponents, not just heads-up.</p>
+    </div>
+    <div class="feature">
+      <span class="tag free">FREE</span>
+      <h3>Position-based strategy</h3>
+      <p>Preflop advice scaled to your seat and table size, grounded in real opening range charts.</p>
+    </div>
+    <div class="feature">
+      <span class="tag pro">COMING SOON</span>
+      <h3>Hand history tracker</h3>
+      <p>Log your sessions and hands automatically so you can review your play later.</p>
+    </div>
+    <div class="feature">
+      <span class="tag pro">COMING SOON</span>
+      <h3>Tournament ICM calculator</h3>
+      <p>Understand real payout equity in tournament situations, not just cash-game odds.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <h2 style="font-size: 28px;">Simple pricing</h2>
+  <p style="color: var(--muted); margin-top: 8px;">Everything below is live and free right now.</p>
+  <div class="plans">
+    <div class="plan highlight">
+      <h3>Free</h3>
+      <div class="price">$0</div>
+      <a class="cta" style="display:block; text-align:center; margin-top:8px;" href="https://turtleman74532-collab.github.io/EquityUp-site/">Try It Now</a>
+      <ul>
+        <li>Instant win odds</li>
+        <li>Real pot odds math</li>
+        <li>Multi-player equity (up to 8)</li>
+        <li>Position-based preflop strategy</li>
+        <li>Unlimited hands</li>
+      </ul>
+    </div>
+    <div class="plan">
+      <h3>Pro</h3>
+      <div class="price">Coming soon</div>
+      <a class="cta secondary" style="display:block; text-align:center; margin-top:8px; opacity:0.6; pointer-events:none;" href="#">Not yet available</a>
+      <ul>
+        <li>Hand history tracker</li>
+        <li>Tournament ICM calculator</li>
+        <li>More on the way</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="max-width:420px; margin:48px auto 0; background:var(--card); border:1px solid #1e2733; border-radius:14px; padding:28px; text-align:left;">
+    <h3 style="font-size:18px; margin-bottom:6px;">Want early access to Pro?</h3>
+    <p style="color:var(--muted); font-size:14px; margin-bottom:16px;">Leave your email and I'll let you know the moment it's live. No spam, just one email when it launches.</p>
+    <form action="https://formspree.io/f/mqpkzkkp" method="POST" style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input type="email" name="email" required placeholder="you@email.com" style="flex:1; min-width:180px; background:#0e141b; color:var(--text); border:1px solid #2a3540; border-radius:8px; padding:12px; font-size:14px;" />
+      <button type="submit" class="cta" style="border:none; cursor:pointer; font-family:inherit;">Notify Me</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  EquityUp is an educational odds calculator. Not affiliated with any casino or poker platform.
+</footer>
+
+</body>
+</html>
